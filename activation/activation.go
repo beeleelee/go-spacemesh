@@ -234,6 +234,60 @@ func (b *Builder) StartSmeshing(coinbase types.Address) error {
 	return nil
 }
 
+func (b *Builder) PrintActInfo() {
+	for _, sig := range b.signers {
+		b.printActInfo(sig.NodeID())
+	}
+}
+
+func (b *Builder) printActInfo(nodeID types.NodeID) {
+	np, err := nipost.InitialPost(b.localDB, nodeID)
+	if err == nil {
+		if bs, err := json.Marshal(np); err == nil {
+			os.WriteFile("initial-post.json", bs, 0644)
+		} else {
+			fmt.Printf("initial-post json encode failed: %s/n", err)
+		}
+	}
+	challenge, err := nipost.Challenge(b.localDB, nodeID)
+	if err == nil {
+		if bs, err := json.Marshal(challenge); err == nil {
+			os.WriteFile("nipchallenge.json", bs, 0644)
+		} else {
+			fmt.Printf("nipchallenge json encode failed: %s/n", err)
+		}
+	}
+	atx, err := b.cdb.GetLastAtx(nodeID)
+	if err == nil {
+		if bs, err := json.Marshal(atx); err == nil {
+			os.WriteFile("last-atx.json", bs, 0644)
+		} else {
+			fmt.Printf("atx json encode failed: %s/n", err)
+		}
+	}
+	poetProofRef, membership, err := nipost.PoetProofRef(b.localDB, nodeID)
+	if err == nil {
+		if bs, err := json.Marshal(poetProofRef); err == nil {
+			os.WriteFile("poet-proof.json", bs, 0644)
+		} else {
+			fmt.Printf("poet-proof json encode failed: %s/n", err)
+		}
+		if bs, err := json.Marshal(membership); err == nil {
+			os.WriteFile("membership.json", bs, 0644)
+		} else {
+			fmt.Printf("membership json encode failed: %s/n", err)
+		}
+	}
+	nipostState, err := nipost.NIPost(b.localDB, nodeID)
+	if err == nil {
+		if bs, err := json.Marshal(nipostState); err == nil {
+			os.WriteFile("nipostState.json", bs, 0644)
+		} else {
+			fmt.Printf("nipostState json encode failed: %s/n", err)
+		}
+	}
+}
+
 func (b *Builder) startID(ctx context.Context, sig *signing.EdSigner) {
 	b.eg.Go(func() error {
 		b.run(ctx, sig)
@@ -310,16 +364,9 @@ func (b *Builder) buildInitialPost(ctx context.Context, nodeID types.NodeID) err
 		return nil
 	}
 	// ...and if we haven't stored an initial post yet.
-	np, err := nipost.InitialPost(b.localDB, nodeID)
+	_, err := nipost.InitialPost(b.localDB, nodeID)
 	switch {
 	case err == nil:
-		/**- leef -**/
-		if bs, err := json.Marshal(np); err == nil {
-			os.WriteFile("initial-post.json", bs, 0644)
-		} else {
-			fmt.Printf("initial-post json encode failed: %s/n", err)
-		}
-		/*** leef ***/
 		b.log.Info("load initial post from db")
 		return nil
 	case errors.Is(err, sql.ErrNotFound):
@@ -360,13 +407,6 @@ func (b *Builder) buildInitialPost(ctx context.Context, nodeID types.NodeID) err
 		}
 		return fmt.Errorf("initial POST is invalid: %w", err)
 	}
-	/**- leef -**/
-	if bs, err := json.Marshal(&initialPost); err == nil {
-		os.WriteFile("initial-post.json", bs, 0644)
-	} else {
-		fmt.Printf("initial-post json encode failed: %s/n", err)
-	}
-	/*** leef ***/
 	metrics.PostDuration.Set(float64(time.Since(startTime).Nanoseconds()))
 	public.PostSeconds.Set(float64(time.Since(startTime)))
 	b.log.Info("created the initial post")
@@ -469,13 +509,6 @@ func (b *Builder) BuildNIPostChallenge(ctx context.Context, nodeID types.NodeID)
 		}
 	default:
 		// challenge is fresh
-		/**- leef -**/
-		if bs, err := json.Marshal(challenge); err == nil {
-			os.WriteFile("nipchallenge.json", bs, 0644)
-		} else {
-			fmt.Printf("nipchallenge json encode failed: %s/n", err)
-		}
-		/*** leef ***/
 		return challenge, nil
 	}
 	logger.Info("building new NiPOST challenge", zap.Uint32("current_epoch", current.Uint32()))
@@ -565,13 +598,6 @@ func (b *Builder) BuildNIPostChallenge(ctx context.Context, nodeID types.NodeID)
 			PositioningATX: posAtx,
 		}
 	}
-	/**- leef -**/
-	if bs, err := json.Marshal(challenge); err == nil {
-		os.WriteFile("nipchallenge.json", bs, 0644)
-	} else {
-		fmt.Printf("nipchallenge json encode failed: %s/n", err)
-	}
-	/*** leef ***/
 	if err := nipost.AddChallenge(b.localDB, nodeID, challenge); err != nil {
 		return nil, fmt.Errorf("add nipost challenge: %w", err)
 	}
@@ -658,13 +684,6 @@ func (b *Builder) createAtx(
 	if err != nil {
 		return nil, fmt.Errorf("build NIPost: %w", err)
 	}
-	/**- leef -**/
-	if bs, err := json.Marshal(nipostState); err == nil {
-		os.WriteFile("nipostState.json", bs, 0644)
-	} else {
-		fmt.Printf("nipostState json encode failed: %s/n", err)
-	}
-	/*** leef ***/
 	b.log.Info("awaiting atx publication epoch",
 		zap.Uint32("pub_epoch", pubEpoch.Uint32()),
 		zap.Uint32("pub_epoch_first_layer", pubEpoch.FirstLayer().Uint32()),
