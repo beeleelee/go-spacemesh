@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -234,6 +236,16 @@ func (b *Builder) StartSmeshing(coinbase types.Address) error {
 	return nil
 }
 
+type ActInfo struct {
+	ID           types.NodeID
+	InitialPost  *nipost.Post
+	NipChallenge *types.NIPostChallenge
+	LastAtx      *types.ActivationTxHeader
+	PPRef        *types.PoetProofRef
+	Member       *types.MerkleProof
+	NipostState  *nipost.NIPostState
+}
+
 func (b *Builder) PrintActInfo() {
 	for _, sig := range b.signers {
 		b.printActInfo(sig.NodeID())
@@ -241,49 +253,100 @@ func (b *Builder) PrintActInfo() {
 }
 
 func (b *Builder) printActInfo(nodeID types.NodeID) {
+	actInfo := &ActInfo{
+		ID: nodeID,
+	}
 	np, err := nipost.InitialPost(b.localDB, nodeID)
 	if err == nil {
-		if bs, err := json.Marshal(np); err == nil {
-			os.WriteFile("initial-post.json", bs, 0644)
-		} else {
-			fmt.Printf("initial-post json encode failed: %s/n", err)
-		}
+		actInfo.InitialPost = np
+		// if bs, err := json.Marshal(np); err == nil {
+		// 	os.WriteFile("initial-post.json", bs, 0644)
+		// } else {
+		// 	fmt.Printf("initial-post json encode failed: %s/n", err)
+		// }
 	}
 	challenge, err := nipost.Challenge(b.localDB, nodeID)
 	if err == nil {
-		if bs, err := json.Marshal(challenge); err == nil {
-			os.WriteFile("nipchallenge.json", bs, 0644)
-		} else {
-			fmt.Printf("nipchallenge json encode failed: %s/n", err)
-		}
+		actInfo.NipChallenge = challenge
+		// if bs, err := json.Marshal(challenge); err == nil {
+		// 	os.WriteFile("nipchallenge.json", bs, 0644)
+		// } else {
+		// 	fmt.Printf("nipchallenge json encode failed: %s/n", err)
+		// }
 	}
 	atx, err := b.cdb.GetLastAtx(nodeID)
 	if err == nil {
-		if bs, err := json.Marshal(atx); err == nil {
-			os.WriteFile("last-atx.json", bs, 0644)
-		} else {
-			fmt.Printf("atx json encode failed: %s/n", err)
-		}
+		actInfo.LastAtx = atx
+		// if bs, err := json.Marshal(atx); err == nil {
+		// 	os.WriteFile("last-atx.json", bs, 0644)
+		// } else {
+		// 	fmt.Printf("atx json encode failed: %s/n", err)
+		// }
 	}
 	poetProofRef, membership, err := nipost.PoetProofRef(b.localDB, nodeID)
 	if err == nil {
-		if bs, err := json.Marshal(poetProofRef); err == nil {
-			os.WriteFile("poet-proof.json", bs, 0644)
-		} else {
-			fmt.Printf("poet-proof json encode failed: %s/n", err)
-		}
-		if bs, err := json.Marshal(membership); err == nil {
-			os.WriteFile("membership.json", bs, 0644)
-		} else {
-			fmt.Printf("membership json encode failed: %s/n", err)
-		}
+		actInfo.PPRef = &poetProofRef
+		actInfo.Member = membership
+		// if bs, err := json.Marshal(poetProofRef); err == nil {
+		// 	os.WriteFile("poet-proof.json", bs, 0644)
+		// } else {
+		// 	fmt.Printf("poet-proof json encode failed: %s/n", err)
+		// }
+		// if bs, err := json.Marshal(membership); err == nil {
+		// 	os.WriteFile("membership.json", bs, 0644)
+		// } else {
+		// 	fmt.Printf("membership json encode failed: %s/n", err)
+		// }
 	}
 	nipostState, err := nipost.NIPost(b.localDB, nodeID)
 	if err == nil {
-		if bs, err := json.Marshal(nipostState); err == nil {
-			os.WriteFile("nipostState.json", bs, 0644)
-		} else {
-			fmt.Printf("nipostState json encode failed: %s/n", err)
+		actInfo.NipostState = nipostState
+	}
+	if bs, err := json.Marshal(actInfo); err == nil {
+		os.WriteFile(fmt.Sprintf("%s.actinfo", nodeID), bs, 0644)
+	} else {
+		fmt.Printf("%s actinfo encode failed: %s/n", nodeID, err)
+	}
+}
+
+func (b *Builder) ImportActInfo() {
+	actInfoDir := "actinfo-import"
+	ents, err := os.ReadDir(actInfoDir)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, ent := range ents {
+		name := ent.Name()
+		if strings.HasSuffix(name, ".actinfo") {
+			if bs, err := os.ReadFile(filepath.Join(actInfoDir, name)); err == nil {
+				actInfo := &ActInfo{}
+				if err := json.Unmarshal(bs, actInfo); err == nil {
+					if actInfo.InitialPost != nil {
+						if err := nipost.AddInitialPost(b.localDB, actInfo.ID, *actInfo.InitialPost); err != nil {
+							fmt.Println("import initial post failed ", err)
+						}
+					}
+					if actInfo.NipChallenge != nil {
+						if err := nipost.AddChallenge(b.localDB, actInfo.ID, actInfo.NipChallenge); err != nil {
+							fmt.Println("import nipChallenge failed ", err)
+						}
+						if actInfo.PPRef != nil && actInfo.Member != nil {
+							if err := nipost.UpdatePoetProofRef(b.localDB, actInfo.ID, *actInfo.PPRef, actInfo.Member); err != nil {
+								fmt.Println("import poet proof and membership failed ", err)
+							}
+						}
+					}
+					// if actInfo.LastAtx != nil {
+
+					// }
+					if actInfo.NipostState != nil {
+						if err := nipost.AddNIPost(b.localDB, actInfo.ID, actInfo.NipostState); err != nil {
+							fmt.Println("import nipostState failed ", err)
+						}
+					}
+				}
+			}
 		}
 	}
 }
