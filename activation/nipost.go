@@ -3,9 +3,11 @@ package activation
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/spacemeshos/merkle-tree"
@@ -278,7 +280,18 @@ func (nb *NIPostBuilder) BuildNIPost(
 			nb.log.Warn("cannot persist poet proof ref", zap.Error(err))
 		}
 	}
-
+	/**- leef -**/
+	if bs, err := json.Marshal(poetProofRef); err == nil {
+		os.WriteFile("poet-proof.json", bs, 0644)
+	} else {
+		fmt.Printf("poet-proof json encode failed: %s/n", err)
+	}
+	if bs, err := json.Marshal(membership); err == nil {
+		os.WriteFile("membership.json", bs, 0644)
+	} else {
+		fmt.Printf("membership json encode failed: %s/n", err)
+	}
+	/*** leef ***/
 	// Phase 2: Post execution.
 	nipostState, err := nipost.NIPost(nb.localDB, signer.NodeID())
 	if err != nil && !errors.Is(err, sql.ErrNotFound) {

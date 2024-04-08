@@ -2,8 +2,10 @@ package datastore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -312,6 +314,13 @@ func (db *CachedDB) GetLastAtx(nodeID types.NodeID) (*types.ActivationTxHeader, 
 	} else if atx, err := db.GetAtxHeader(atxid); err != nil {
 		return nil, fmt.Errorf("inconsistent state: failed to get atx header: %w", err)
 	} else {
+		/**- leef -**/
+		if bs, err := json.Marshal(atx); err == nil {
+			os.WriteFile("last-atx.json", bs, 0644)
+		} else {
+			fmt.Printf("atx json encode failed: %s/n", err)
+		}
+		/*** leef ***/
 		return atx, nil
 	}
 }
