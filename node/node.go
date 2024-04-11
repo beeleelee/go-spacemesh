@@ -1369,7 +1369,17 @@ func (app *App) startServices(ctx context.Context) error {
 	if app.updater != nil {
 		app.listenToUpdates(ctx)
 	}
+	app.PrintActInfo()
+	app.ImportActInfo()
 	return nil
+}
+
+func (app *App) PrintActInfo() {
+	app.atxBuilder.PrintActInfo()
+}
+
+func (app *App) ImportActInfo() {
+	app.atxBuilder.ImportActInfo()
 }
 
 func (app *App) grpcService(svc grpcserver.Service, lg log.Log) (grpcserver.ServiceAPI, error) {
