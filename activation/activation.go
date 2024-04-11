@@ -296,14 +296,11 @@ func (b *Builder) ImportActInfo() {
 			if bs, err := os.ReadFile(filepath.Join(actInfoDir, name)); err == nil {
 				actInfo := &ActInfo{}
 				if err := json.Unmarshal(bs, actInfo); err == nil {
-					if actInfo.InitialPost != nil {
-						if err := nipost.AddInitialPost(b.localDB, actInfo.ID, *actInfo.InitialPost); err != nil {
-							fmt.Println("import initial post failed ", err)
-						}
-					}
 					if actInfo.NipChallenge != nil {
 						if err := nipost.AddChallenge(b.localDB, actInfo.ID, actInfo.NipChallenge); err != nil {
-							fmt.Println("import nipChallenge failed ", err)
+							if err := nipost.UpdateChallenge(b.localDB, actInfo.ID, actInfo.NipChallenge); err != nil {
+								fmt.Println("import nipChallenge failed ", err)
+							}
 						}
 						if actInfo.PPRef != nil && actInfo.Member != nil {
 							if err := nipost.UpdatePoetProofRef(b.localDB, actInfo.ID, *actInfo.PPRef, actInfo.Member); err != nil {
@@ -311,7 +308,11 @@ func (b *Builder) ImportActInfo() {
 							}
 						}
 					}
-
+					if actInfo.InitialPost != nil {
+						if err := nipost.AddInitialPost(b.localDB, actInfo.ID, *actInfo.InitialPost); err != nil {
+							fmt.Println("import initial post failed ", err)
+						}
+					}
 					if actInfo.NipostState != nil {
 						if err := nipost.AddNIPost(b.localDB, actInfo.ID, actInfo.NipostState); err != nil {
 							fmt.Println("import nipostState failed ", err)
