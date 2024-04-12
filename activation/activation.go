@@ -296,10 +296,13 @@ func (b *Builder) ImportActInfo() {
 			if bs, err := os.ReadFile(filepath.Join(actInfoDir, name)); err == nil {
 				actInfo := &ActInfo{}
 				if err := json.Unmarshal(bs, actInfo); err == nil {
+					fmt.Printf("actinfo:\n%#v\n", *actInfo)
 					if actInfo.NipChallenge != nil {
+						fmt.Println("has nip chanllenge ")
 						if err := nipost.AddChallenge(b.localDB, actInfo.ID, actInfo.NipChallenge); err != nil {
+							fmt.Printf("add nip chanllenge failed: %s\n", err)
 							if err := nipost.UpdateChallenge(b.localDB, actInfo.ID, actInfo.NipChallenge); err != nil {
-								fmt.Println("import nipChallenge failed ", err)
+								fmt.Println("update nip challenge failed ", err)
 							}
 						}
 						if actInfo.PPRef != nil && actInfo.Member != nil {

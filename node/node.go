@@ -1369,8 +1369,8 @@ func (app *App) startServices(ctx context.Context) error {
 	if app.updater != nil {
 		app.listenToUpdates(ctx)
 	}
-	app.PrintActInfo()
 	app.ImportActInfo()
+	app.PrintActInfo()
 	return nil
 }
 
